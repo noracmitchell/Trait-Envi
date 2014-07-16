@@ -1,0 +1,204 @@
+\documentclass[12pt]{article}\usepackage[]{graphicx}\usepackage[]{color}
+%% maxwidth is the original width if it is less than linewidth
+%% otherwise use linewidth (to make sure the graphics do not exceed the margin)
+\makeatletter
+\def\maxwidth{ %
+  \ifdim\Gin@nat@width>\linewidth
+    \linewidth
+  \else
+    \Gin@nat@width
+  \fi
+}
+\makeatother
+
+\definecolor{fgcolor}{rgb}{0.345, 0.345, 0.345}
+\newcommand{\hlnum}[1]{\textcolor[rgb]{0.686,0.059,0.569}{#1}}%
+\newcommand{\hlstr}[1]{\textcolor[rgb]{0.192,0.494,0.8}{#1}}%
+\newcommand{\hlcom}[1]{\textcolor[rgb]{0.678,0.584,0.686}{\textit{#1}}}%
+\newcommand{\hlopt}[1]{\textcolor[rgb]{0,0,0}{#1}}%
+\newcommand{\hlstd}[1]{\textcolor[rgb]{0.345,0.345,0.345}{#1}}%
+\newcommand{\hlkwa}[1]{\textcolor[rgb]{0.161,0.373,0.58}{\textbf{#1}}}%
+\newcommand{\hlkwb}[1]{\textcolor[rgb]{0.69,0.353,0.396}{#1}}%
+\newcommand{\hlkwc}[1]{\textcolor[rgb]{0.333,0.667,0.333}{#1}}%
+\newcommand{\hlkwd}[1]{\textcolor[rgb]{0.737,0.353,0.396}{\textbf{#1}}}%
+
+\usepackage{framed}
+\makeatletter
+\newenvironment{kframe}{%
+ \def\at@end@of@kframe{}%
+ \ifinner\ifhmode%
+  \def\at@end@of@kframe{\end{minipage}}%
+  \begin{minipage}{\columnwidth}%
+ \fi\fi%
+ \def\FrameCommand##1{\hskip\@totalleftmargin \hskip-\fboxsep
+ \colorbox{shadecolor}{##1}\hskip-\fboxsep
+     % There is no \\@totalrightmargin, so:
+     \hskip-\linewidth \hskip-\@totalleftmargin \hskip\columnwidth}%
+ \MakeFramed {\advance\hsize-\width
+   \@totalleftmargin\z@ \linewidth\hsize
+   \@setminipage}}%
+ {\par\unskip\endMakeFramed%
+ \at@end@of@kframe}
+\makeatother
+
+\definecolor{shadecolor}{rgb}{.97, .97, .97}
+\definecolor{messagecolor}{rgb}{0, 0, 0}
+\definecolor{warningcolor}{rgb}{1, 0, 1}
+\definecolor{errorcolor}{rgb}{1, 0, 0}
+\newenvironment{knitrout}{}{} % an empty environment to be redefined in TeX
+
+\usepackage{alltt}
+
+%% for inline R code: if the inline code is not correctly parsed,
+%% you will see a message
+\newcommand{\rinline}[1]{SOMETHING WRONG WITH knitr}
+
+
+
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+
+\begin{document}
+
+\title{Posterior comparison of regression coefficients}
+
+\maketitle
+
+\noindent The idea here is pretty simple: The credible intervals
+associated with each coefficient in the regressions identifies
+associations for which we have good evidence, i.e., those for which
+the credible interval doesn't overlap zero. But we can't compare
+the regression coefficients for {\it Protea\/} and {\it Pelargonium\/}
+simply by comparing which coefficients are detectably different from
+zero, except in the simple case when coefficients don't overlap zero and
+have opposite signes.
+
+It is, however, easy to construct statistics to compare them using
+posterior comparisons~\cite{Holsinger-Wallace-2004}. We already have a
+posterior sample for each set of regression coefficients, so we simply
+select one coefficient from the posterior in the {\it Protea\/} model,
+one from the posterior in the {\it Pelargonium\/} model, take the
+difference, repeat a large number of times, calculate the credible
+interval of the difference, and determine whether it overlaps zero. If
+it does, we don't have evidence that the coefficients are
+different. If it doesn't, we do.
+
+%% read in the posterior results
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlkwd{load}\hlstd{(}\hlstr{"results-2014-03-06-09-01-02.Rsave"}\hlstd{)}
+\hlstd{protea} \hlkwb{<-} \hlstd{fit}\hlopt{$}\hlstd{BUGSoutput}\hlopt{$}\hlstd{sims.list}
+\hlkwd{load}\hlstd{(}\hlstr{"results-2014-03-08-13-25-09.Rsave"}\hlstd{)}
+\hlstd{pellie} \hlkwb{<-} \hlstd{fit}\hlopt{$}\hlstd{BUGSoutput}\hlopt{$}\hlstd{sims.list}
+\hlkwd{rm}\hlstd{(fit)}
+\end{alltt}
+\end{kframe}
+\end{knitrout}
+
+
+{\tt protea} and {\tt pellie} are now simple objects that contain the
+posterior sample for each coefficient in the model. We're only
+interested in comparing the {\tt beta.*} coefficients. Since the two
+chains were run separately from one another and are of the same size
+we can construct our posterior sample by simply running through each
+sample fromt the posterior sequentially. First, we set up the
+posterior comparison function. That's really easy (so long as we're
+using symmetric credible intervals) because all we have to do is
+determine the lower and upper bounds, take the difference of the input
+vectors and return the quantiles.
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlstd{compare} \hlkwb{<-} \hlkwa{function}\hlstd{(}\hlkwc{x}\hlstd{,} \hlkwc{y}\hlstd{,} \hlkwc{prob} \hlstd{=} \hlnum{0.95}\hlstd{) \{}
+  \hlstd{lo} \hlkwb{<-} \hlstd{(}\hlnum{1} \hlopt{-} \hlstd{prob)}\hlopt{/}\hlnum{2}
+  \hlstd{hi} \hlkwb{<-} \hlnum{1} \hlopt{-} \hlstd{lo}
+  \hlstd{diff} \hlkwb{<-} \hlstd{x} \hlopt{-} \hlstd{y}
+  \hlkwd{quantile}\hlstd{(diff,} \hlkwc{probs} \hlstd{=} \hlkwd{c}\hlstd{(lo, hi))}
+\hlstd{\}}
+\end{alltt}
+\end{kframe}
+\end{knitrout}
+
+
+Now we simply iterate through each of the {\tt beta.*} and report the
+results. To make the coefficients that are detectably different from
+one another a bit easier to spot, we add a '*' after the credible
+interval.
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlcom{## get the indices for beta coefficients in the}
+\hlcom{## objects they'll be the same for protea and}
+\hlcom{## pellie}
+\hlstd{idx} \hlkwb{<-} \hlkwd{grep}\hlstd{(}\hlstr{"beta"}\hlstd{,} \hlkwd{names}\hlstd{(pellie))}
+\hlkwa{for} \hlstd{(i} \hlkwa{in} \hlstd{idx) \{}
+  \hlkwa{for} \hlstd{(j} \hlkwa{in} \hlnum{1}\hlopt{:}\hlnum{4}\hlstd{) \{}
+    \hlstd{cred} \hlkwb{<-} \hlkwd{compare}\hlstd{(protea[[i]][, j], pellie[[i]][,}
+      \hlstd{j])}
+    \hlkwd{cat}\hlstd{(}\hlkwd{names}\hlstd{(protea)[[i]],} \hlstr{"["}\hlstd{, j,} \hlstr{"]"}\hlstd{,} \hlstr{" ("}\hlstd{,}
+      \hlstd{cred[}\hlnum{1}\hlstd{],} \hlstr{","}\hlstd{, cred[}\hlnum{2}\hlstd{],} \hlstr{")"}\hlstd{,} \hlkwc{sep} \hlstd{=} \hlstr{""}\hlstd{)}
+    \hlcom{## we know that the credible interval doesn't}
+    \hlcom{## overlap zero if either the lower bound is}
+    \hlcom{## positive or the upper bound is negative}
+    \hlkwa{if} \hlstd{((cred[}\hlnum{1}\hlstd{]} \hlopt{>} \hlnum{0}\hlstd{)} \hlopt{||} \hlstd{(cred[}\hlnum{2}\hlstd{]} \hlopt{<} \hlnum{0}\hlstd{)) \{}
+      \hlkwd{cat}\hlstd{(}\hlstr{"*"}\hlstd{,} \hlkwc{sep} \hlstd{=} \hlstr{""}\hlstd{)}
+    \hlstd{\}}
+    \hlkwd{cat}\hlstd{(}\hlstr{"\textbackslash{}n"}\hlstd{)}
+  \hlstd{\}}
+\hlstd{\}}
+\end{alltt}
+\begin{verbatim}
+## beta.cdd[1] (-0.03624,0.3088)
+## beta.cdd[2] (-0.785,-0.3749)*
+## beta.cdd[3] (-0.04717,0.182)
+## beta.cdd[4] (-0.0724,0.2932)
+## beta.elev[1] (-0.4811,0.06748)
+## beta.elev[2] (-0.4061,0.2245)
+## beta.elev[3] (-0.1862,0.2201)
+## beta.elev[4] (-0.1839,0.3939)
+## beta.inso[1] (-0.3677,-0.07219)*
+## beta.inso[2] (-0.07133,0.2912)
+## beta.inso[3] (-0.1027,0.1064)
+## beta.inso[4] (-0.02798,0.2842)
+## beta.map[1] (-0.1653,0.2921)
+## beta.map[2] (-0.4748,0.07021)
+## beta.map[3] (0.1035,0.424)*
+## beta.map[4] (-0.271,0.1902)
+## beta.mat[1] (0.2681,0.7574)*
+## beta.mat[2] (-0.5638,0.05674)
+## beta.mat[3] (-0.182,0.1915)
+## beta.mat[4] (-0.2947,0.2045)
+## beta.ratio[1] (0.01782,0.4088)*
+## beta.ratio[2] (-0.4621,0.02279)
+## beta.ratio[3] (-0.3998,-0.1067)*
+## beta.ratio[4] (-0.2784,0.1458)
+\end{verbatim}
+\end{kframe}
+\end{knitrout}
+
+
+It's probably helpful to visualize the differences by plotting the
+posteriors.
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlkwd{source}\hlstd{(}\hlstr{"posterior-comparisons.R"}\hlstd{)}
+\end{alltt}
+
+
+{\ttfamily\noindent\itshape\color{messagecolor}{\#\# Loading required package: ggplot2}}\end{kframe}
+\includegraphics[width=\maxwidth]{figure/unnamed-chunk-41} 
+
+\includegraphics[width=\maxwidth]{figure/unnamed-chunk-42} 
+
+\includegraphics[width=\maxwidth]{figure/unnamed-chunk-43} 
+
+\includegraphics[width=\maxwidth]{figure/unnamed-chunk-44} 
+
+\end{knitrout}
+
+
+\end{document}

@@ -1,0 +1,126 @@
+model {
+  for (i in 1:n.samp) {
+    ## multivariate response vector
+    ##
+    y[i,1:4] ~ dmnorm(mu[i,1:4], phi.resid[1:4,1:4])
+
+    ## different coefficients for each response: (j in 1:4)
+    ## species random effect in intercept: beta.0[species[i],j]
+    ##
+    for (j in 1:4) {
+      mu[i,j] <- beta.0[species[i],j]
+                 + beta.map[j]*map[i]
+                 + beta.mat[j]*mat[i]
+                 + beta.ratio[j]*ratio[i]
+                 + beta.cdd[j]*cdd[i]
+		 + beta.inso[j]*inso[i]
+		 + beta.elev[j]*elev[i]
+    }
+  }
+
+  ## priors on beta's
+  ##
+  for (j in 1:4) {
+    beta.map[j] ~ dnorm(0.0, tau)
+    beta.mat[j] ~ dnorm(0.0, tau)
+    beta.ratio[j] ~ dnorm(0.0, tau)
+    beta.cdd[j] ~ dnorm(0.0, tau)
+    beta.inso[j] ~ dnorm(0.0, tau)
+    beta.elev[j] ~ dnorm(0.0, tau)
+  }
+
+  ## mvnorm prior on species random effects
+  ##
+  ## using indepent priors on each trait for now
+  ##
+  Phi[1:n.dim] ~ dmnorm(mu.0, phi.species.full[1:n.dim,1:n.dim])
+  for (j in 1:n.dim) {
+    mu.0[j] <- 0.0
+  }
+  ## translate mvnorm to subvectors for beta.0
+  ##
+  for (k in 1:n.species) {
+    for (j in 1:4) {
+      beta.0[k,j] <- Phi[(k-1)*4+j]
+    }
+  }
+
+  ## prior on inverse of covariance matrix
+  ##
+  ## start with independent gamma priors on each standard
+  ## deviation
+  ##
+  for (i in 1:4) {
+    sd.resid[i] ~ dgamma(gamma.shape.resid, gamma.rate.resid)
+  }
+  ## then build correlation matrix with off-diagaonal elements
+  ## independent symmetric beta priors
+  ##
+  for (i in 1:3) {
+    rho.resid[i,i] <- 1.0
+    for (j in (i+1):4) {
+      gamma.resid[i,j] ~ dbeta(beta.par, beta.par)
+      rho.resid[i,j] <- max.r*(2.0*gamma.resid[i,j] - 1.0)
+      rho.resid[j,i] <- rho.resid[i,j]
+    }
+  }
+  rho.resid[4,4] <- 1.0
+  ## then calculate covariance matrix
+  ##
+  for (i in 1:3) {
+    Sigma.resid[i,i] <- sd.resid[i]*sd.resid[i]
+    for (j in (i+1):4) {
+      Sigma.resid[i,j] <- rho.resid[i,j]*sd.resid[i]*sd.resid[j]
+      Sigma.resid[j,i] <- Sigma.resid[i,j]
+    }
+  }
+  Sigma.resid[4,4] <- sd.resid[4]*sd.resid[4]
+  phi.resid[1:4,1:4] <- inverse(Sigma.resid[1:4,1:4])
+
+  ## element-wise Kronecker product
+  ## http://sourceforge.net/p/mcmc-jags/discussion/610037/thread/17ddb2ce/
+  ##
+  ##
+  for (i in 1:n.species) {
+    for (j in 1:n.species) {
+      for (k in 1:4) {
+        for (l in 1:4) {
+          phi.species.full[(i-1)*4+k, (j-1)*4+l] <- Ginv[i,j]*phi.species[k,l]
+        }
+      }
+    }
+  }
+
+  ## prior on trait component of species random effect
+  ##
+  ## start with independent exponential priors on each standard
+  ## deviation
+  ##
+  for (i in 1:4) {
+    sd.species[i] ~ dgamma(gamma.shape.species, gamma.rate.species)
+  }
+  ## then build correlation matrix with off-diagonal elements
+  ## independent symmetric beta priors
+  ##
+  for (i in 1:3) {
+    rho.species[i,i] <- 1.0
+    for (j in (i+1):4) {
+      gamma.species[i,j] ~ dbeta(beta.par, beta.par)
+      rho.species[i,j] <- max.r*(2.0*gamma.species[i,j] - 1.0)
+      rho.species[j,i] <- rho.species[i,j]
+    }
+  }
+  rho.species[4,4] <- 1.0
+  ## then calculate covariance matrix
+  ##
+  for (i in 1:3) {
+    Sigma.species[i,i] <- sd.species[i]*sd.species[i]
+    for (j in (i+1):4) {
+      Sigma.species[i,j] <- rho.species[i,j]*sd.species[i]*sd.species[j]
+      Sigma.species[j,i] <- Sigma.species[i,j]
+    }
+  }
+  Sigma.species[4,4] <- sd.species[4]*sd.species[4]
+  phi.species[1:4,1:4] <- inverse(Sigma.species[1:4,1:4])
+
+}

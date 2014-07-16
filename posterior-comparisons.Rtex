@@ -1,0 +1,103 @@
+\documentclass[12pt]{article}
+
+%% for inline R code: if the inline code is not correctly parsed,
+%% you will see a message
+\newcommand{\rinline}[1]{SOMETHING WRONG WITH knitr}
+
+%% begin.rcode setup, include=FALSE
+% opts_chunk$set(tidy=TRUE, tidy.opts=list(width.cutoff=45,
+%                                          reindent.spaces=2))
+%% end.rcode
+
+\begin{document}
+
+\title{Posterior comparison of regression coefficients}
+
+\maketitle
+
+\noindent The idea here is pretty simple: The credible intervals
+associated with each coefficient in the regressions identifies
+associations for which we have good evidence, i.e., those for which
+the credible interval doesn't overlap zero. But we can't compare
+the regression coefficients for {\it Protea\/} and {\it Pelargonium\/}
+simply by comparing which coefficients are detectably different from
+zero, except in the simple case when coefficients don't overlap zero and
+have opposite signes.
+
+It is, however, easy to construct statistics to compare them using
+posterior comparisons~\cite{Holsinger-Wallace-2004}. We already have a
+posterior sample for each set of regression coefficients, so we simply
+select one coefficient from the posterior in the {\it Protea\/} model,
+one from the posterior in the {\it Pelargonium\/} model, take the
+difference, repeat a large number of times, calculate the credible
+interval of the difference, and determine whether it overlaps zero. If
+it does, we don't have evidence that the coefficients are
+different. If it doesn't, we do.
+
+%% read in the posterior results
+%% begin.rcode
+load("results-2014-03-06-09-01-02.Rsave")
+protea <- fit$BUGSoutput$sims.list
+load("results-2014-03-08-13-25-09.Rsave")
+pellie <- fit$BUGSoutput$sims.list
+rm(fit)
+%% end.rcode
+
+{\tt protea} and {\tt pellie} are now simple objects that contain the
+posterior sample for each coefficient in the model. We're only
+interested in comparing the {\tt beta.*} coefficients. Since the two
+chains were run separately from one another and are of the same size
+we can construct our posterior sample by simply running through each
+sample fromt the posterior sequentially. First, we set up the
+posterior comparison function. That's really easy (so long as we're
+using symmetric credible intervals) because all we have to do is
+determine the lower and upper bounds, take the difference of the input
+vectors and return the quantiles.
+
+%% begin.rcode
+compare <- function(x, y, prob=0.95) {
+  lo <- (1.0 - prob)/2
+  hi <- 1.0 - lo
+  diff <- x - y
+  quantile(diff, probs=c(lo, hi))
+}
+%% end.rcode
+
+Now we simply iterate through each of the {\tt beta.*} and report the
+results. To make the coefficients that are detectably different from
+one another a bit easier to spot, we add a '*' after the credible
+interval.
+
+%% begin.rcode
+## get the indices for beta coefficients in the objects
+## they'll be the same for protea and pellie
+idx <- grep("beta", names(pellie))
+for (i in idx) {
+   for (j in 1:4) {
+     cred <- compare(protea[[i]][,j], pellie[[i]][,j])
+     cat(names(protea)[[i]], "[", j, "]",
+         " (",
+         cred[1],
+         ",",
+         cred[2],
+         ")",
+         sep="")
+      ## we know that the credible interval doesn't overlap zero if
+      ## either the lower bound is positive or the upper bound
+      ## is negative
+      if ((cred[1] > 0) || (cred[2] < 0)) {
+        cat("*", sep="")
+      }
+      cat("\n")
+  }
+}
+%% end.rcode
+
+It's probably helpful to visualize the differences by plotting the
+posteriors.
+
+%% begin.rcode
+source("posterior-comparisons.R")
+%% end.rcode
+
+\end{document}

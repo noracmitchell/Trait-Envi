@@ -1,0 +1,46 @@
+# Miscellaneous files
+######################
+*~
+*.xlsx
+*.zip
+*.pptx
+*.jpg
+*.zip
+samples.csv
+stan.Rdata
+traits-environment.stan.preliminary
+
+# figure directory from Rtex
+############################
+figure/*
+
+# Hidden R files
+######################
+.Rapp.history
+.Rhistory
+.Rdata
+.Rproj*
+*Rproj
+
+# Don't synch .Rsave files
+#########################
+*.Rsave
+
+# LaTeX files
+######################
+*.aux
+*.log
+*.synctex.gz
+*.bbl
+*.blg
+
+# OS generated files
+######################
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Icon?
+ehthumbs.db
+Thumbs.db
