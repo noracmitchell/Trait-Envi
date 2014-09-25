@@ -100,4 +100,66 @@ posteriors.
 source("posterior-comparisons.R")
 %% end.rcode
 
+Here's another approach: Instead of looking at the difference between
+regression coefficients, we ask "Do these coefficients have the same
+sign?" There are three possible answers: "(1) Yes. Both are
+negative. (2) No. One is positive and the other is negative. (3)
+Yes. Both are positive."
+
+%% begin.rcode
+compare.sign <- function(x, y) {
+  stopifnot(length(x) == length(y))
+  negative <- sum(as.numeric((x < 0) & (y < 0)))
+  positive <- sum(as.numeric((x > 0) & (y > 0)))
+  conflict <- sum(as.numeric((x < 0) & (y > 0))) +
+              sum(as.numeric((x > 0) & (y < 0)))
+  stopifnot(length(x) == (negative + positive + conflict))
+  negative <- negative/length(x)
+  positive <- positive/length(x)
+  conflict <- conflict/length(x)
+  list(negative=negative,
+       positive=positive,
+       conflict=conflict)
+}
+%% end.rcode
+
+Now we iterate through each of the {\tt beta.*} as before, store the
+results in a table ({\tt results}), and report the results.
+
+%% begin.rcode
+## get the indices for beta coefficients in the objects
+## they'll be the same for protea and pellie
+idx <- grep("beta", names(pellie))
+coefficient <- character(0)
+negative <- numeric(0)
+conflict <- numeric(0)
+positive <- numeric(0)
+for (i in idx) {
+   for (j in 1:4) {
+     results <- compare.sign(protea[[i]][,j], pellie[[i]][,j])
+     coefficient <- c(coefficient, paste(names(protea)[[i]], j, sep=""))
+     negative <- c(negative, results$negative)
+     conflict <- c(conflict, results$conflict)
+     positive <- c(positive, results$positive)
+  }
+}
+results <- data.frame(coefficient,
+                      negative,
+                      conflict,
+                      positive)
+%% end.rcode
+
+%% begin.rcode
+require(xtable)
+results.table <- xtable(results, digits=3)
+print(results.table, 
+      file="table-temp.tex",
+      include.rownames=FALSE)
+%% end.rcode
+
+\input{table-temp}
+
+\bibliography{posterior-comparisons}
+\bibliographystyle{plain}
+
 \end{document}

@@ -56,7 +56,6 @@
 
 
 \IfFileExists{upquote.sty}{\usepackage{upquote}}{}
-
 \begin{document}
 
 \title{Posterior comparison of regression coefficients}
@@ -95,7 +94,6 @@ different. If it doesn't, we do.
 \end{kframe}
 \end{knitrout}
 
-
 {\tt protea} and {\tt pellie} are now simple objects that contain the
 posterior sample for each coefficient in the model. We're only
 interested in comparing the {\tt beta.*} coefficients. Since the two
@@ -119,7 +117,6 @@ vectors and return the quantiles.
 \end{alltt}
 \end{kframe}
 \end{knitrout}
-
 
 Now we simply iterate through each of the {\tt beta.*} and report the
 results. To make the coefficients that are detectably different from
@@ -178,7 +175,6 @@ interval.
 \end{kframe}
 \end{knitrout}
 
-
 It's probably helpful to visualize the differences by plotting the
 posteriors.
 
@@ -200,5 +196,86 @@ posteriors.
 
 \end{knitrout}
 
+Here's another approach: Instead of looking at the difference between
+regression coefficients, we ask "Do these coefficients have the same
+sign?" There are three possible answers: "(1) Yes. Both are
+negative. (2) No. One is positive and the other is negative. (3)
+Yes. Both are positive."
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlstd{compare.sign} \hlkwb{<-} \hlkwa{function}\hlstd{(}\hlkwc{x}\hlstd{,} \hlkwc{y}\hlstd{) \{}
+  \hlkwd{stopifnot}\hlstd{(}\hlkwd{length}\hlstd{(x)} \hlopt{==} \hlkwd{length}\hlstd{(y))}
+  \hlstd{negative} \hlkwb{<-} \hlkwd{sum}\hlstd{(}\hlkwd{as.numeric}\hlstd{((x} \hlopt{<} \hlnum{0}\hlstd{)} \hlopt{&} \hlstd{(y} \hlopt{<}
+    \hlnum{0}\hlstd{)))}
+  \hlstd{positive} \hlkwb{<-} \hlkwd{sum}\hlstd{(}\hlkwd{as.numeric}\hlstd{((x} \hlopt{>} \hlnum{0}\hlstd{)} \hlopt{&} \hlstd{(y} \hlopt{>}
+    \hlnum{0}\hlstd{)))}
+  \hlstd{conflict} \hlkwb{<-} \hlkwd{sum}\hlstd{(}\hlkwd{as.numeric}\hlstd{((x} \hlopt{<} \hlnum{0}\hlstd{)} \hlopt{&} \hlstd{(y} \hlopt{>}
+    \hlnum{0}\hlstd{)))} \hlopt{+} \hlkwd{sum}\hlstd{(}\hlkwd{as.numeric}\hlstd{((x} \hlopt{>} \hlnum{0}\hlstd{)} \hlopt{&} \hlstd{(y} \hlopt{<} \hlnum{0}\hlstd{)))}
+  \hlkwd{stopifnot}\hlstd{(}\hlkwd{length}\hlstd{(x)} \hlopt{==} \hlstd{(negative} \hlopt{+} \hlstd{positive} \hlopt{+}
+    \hlstd{conflict))}
+  \hlstd{negative} \hlkwb{<-} \hlstd{negative}\hlopt{/}\hlkwd{length}\hlstd{(x)}
+  \hlstd{positive} \hlkwb{<-} \hlstd{positive}\hlopt{/}\hlkwd{length}\hlstd{(x)}
+  \hlstd{conflict} \hlkwb{<-} \hlstd{conflict}\hlopt{/}\hlkwd{length}\hlstd{(x)}
+  \hlkwd{list}\hlstd{(}\hlkwc{negative} \hlstd{= negative,} \hlkwc{positive} \hlstd{= positive,}
+    \hlkwc{conflict} \hlstd{= conflict)}
+\hlstd{\}}
+\end{alltt}
+\end{kframe}
+\end{knitrout}
+
+Now we iterate through each of the {\tt beta.*} as before, store the
+results in a table ({\tt results}), and report the results.
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlcom{## get the indices for beta coefficients in the}
+\hlcom{## objects they'll be the same for protea and}
+\hlcom{## pellie}
+\hlstd{idx} \hlkwb{<-} \hlkwd{grep}\hlstd{(}\hlstr{"beta"}\hlstd{,} \hlkwd{names}\hlstd{(pellie))}
+\hlstd{coefficient} \hlkwb{<-} \hlkwd{character}\hlstd{(}\hlnum{0}\hlstd{)}
+\hlstd{negative} \hlkwb{<-} \hlkwd{numeric}\hlstd{(}\hlnum{0}\hlstd{)}
+\hlstd{conflict} \hlkwb{<-} \hlkwd{numeric}\hlstd{(}\hlnum{0}\hlstd{)}
+\hlstd{positive} \hlkwb{<-} \hlkwd{numeric}\hlstd{(}\hlnum{0}\hlstd{)}
+\hlkwa{for} \hlstd{(i} \hlkwa{in} \hlstd{idx) \{}
+  \hlkwa{for} \hlstd{(j} \hlkwa{in} \hlnum{1}\hlopt{:}\hlnum{4}\hlstd{) \{}
+    \hlstd{results} \hlkwb{<-} \hlkwd{compare.sign}\hlstd{(protea[[i]][,}
+      \hlstd{j], pellie[[i]][, j])}
+    \hlstd{coefficient} \hlkwb{<-} \hlkwd{c}\hlstd{(coefficient,} \hlkwd{paste}\hlstd{(}\hlkwd{names}\hlstd{(protea)[[i]],}
+      \hlstd{j,} \hlkwc{sep} \hlstd{=} \hlstr{""}\hlstd{))}
+    \hlstd{negative} \hlkwb{<-} \hlkwd{c}\hlstd{(negative, results}\hlopt{$}\hlstd{negative)}
+    \hlstd{conflict} \hlkwb{<-} \hlkwd{c}\hlstd{(conflict, results}\hlopt{$}\hlstd{conflict)}
+    \hlstd{positive} \hlkwb{<-} \hlkwd{c}\hlstd{(positive, results}\hlopt{$}\hlstd{positive)}
+  \hlstd{\}}
+\hlstd{\}}
+\hlstd{results} \hlkwb{<-} \hlkwd{data.frame}\hlstd{(coefficient, negative, conflict,}
+  \hlstd{positive)}
+\end{alltt}
+\end{kframe}
+\end{knitrout}
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlkwd{require}\hlstd{(xtable)}
+\end{alltt}
+
+
+{\ttfamily\noindent\itshape\color{messagecolor}{\#\# Loading required package: xtable}}
+
+{\ttfamily\noindent\color{warningcolor}{\#\# Warning: package 'xtable' was built under R version 3.1.1}}\begin{alltt}
+\hlstd{results.table} \hlkwb{<-} \hlkwd{xtable}\hlstd{(results,} \hlkwc{digits} \hlstd{=} \hlnum{3}\hlstd{)}
+\hlkwd{print}\hlstd{(results.table,} \hlkwc{file} \hlstd{=} \hlstr{"table-temp.tex"}\hlstd{,}
+  \hlkwc{include.rownames} \hlstd{=} \hlnum{FALSE}\hlstd{)}
+\end{alltt}
+\end{kframe}
+\end{knitrout}
+
+\input{table-temp}
+
+\bibliography{posterior-comparisons}
+\bibliographystyle{plain}
 
 \end{document}
